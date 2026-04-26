@@ -2,7 +2,6 @@ package com.newgrokchat.data.api
 
 import com.google.gson.Gson
 import com.google.gson.JsonParser
-import com.newgrokchat.model.ApiConfig.ChatRequest
 import com.newgrokchat.model.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -57,7 +56,7 @@ class GrokApiClient {
             val responseBody = response.body?.string() ?: return@withContext Result.failure(Exception("Empty response"))
             
             try {
-                val chatResponse = gson.fromJson(responseBody, ApiConfig.ChatResponse::class.java)
+                val chatResponse = gson.fromJson(responseBody, ChatResponse::class.java)
                 val content = chatResponse.choices?.firstOrNull()?.message?.get("content")
                     ?: chatResponse.error?.message
                     ?: "No response content"
@@ -90,6 +89,10 @@ class GrokApiClient {
         val eventSourceFactory = EventSources.createFactory(client)
         
         val eventSourceListener = object : EventSourceListener() {
+            override fun onOpen(eventSource: EventSource, response: Response) {
+                // Connection opened
+            }
+            
             override fun onEvent(
                 eventSource: EventSource,
                 id: String?,
