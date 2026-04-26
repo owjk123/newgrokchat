@@ -39,11 +39,11 @@ class GrokApiClient {
                 if (result.isSuccess) {
                     return@withContext result
                 } else {
-                    errors.add("$endpoint: ${result.exceptionOrNull()?.message ?: "Unknown error"}")
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    errors.add("$endpoint: $errorMsg")
                 }
             } catch (e: Exception) {
                 errors.add("$endpoint: ${e.message ?: "Unknown error"}")
-                continue
             }
         }
         
@@ -55,14 +55,14 @@ class GrokApiClient {
         Result.failure(Exception(errorMessage))
     }
     
-    private suspend fun trySendMessage(
+    private fun trySendMessage(
         endpoint: String,
         apiKey: String,
         model: String,
         messages: List<Message>,
         systemPrompt: String
-    ): Result<String> = withContext(Dispatchers.IO) {
-        try {
+    ): Result<String> {
+        return try {
             val chatMessages = mutableListOf<Map<String, String>>()
             
             if (systemPrompt.isNotBlank()) {
@@ -90,17 +90,22 @@ class GrokApiClient {
             
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: "Unknown error"
-                return@withContext Result.failure(Exception("HTTP ${response.code}: $errorBody"))
+                return Result.failure(Exception("HTTP ${response.code}: $errorBody"))
             }
             
-            val responseBody = response.body?.string() ?: return@withContext Result.failure(Exception("Empty response"))
+            val responseBody = response.body?.string() ?: return Result.failure(Exception("Empty response"))
             
             try {
                 val chatResponse = gson.fromJson(responseBody, ApiConfig.ChatResponse::class.java)
                 val content = chatResponse.choices?.firstOrNull()?.message?.get("content")
                     ?: chatResponse.error?.message
                     ?: "No response content"
-                Result.success(content)
+                
+                if (chatResponse.error != null) {
+                    Result.failure(Exception(chatResponse.error.message ?: "API Error"))
+                } else {
+                    Result.success(content)
+                }
             } catch (e: Exception) {
                 Result.failure(Exception("Parse error: ${e.message}"))
             }

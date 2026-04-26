@@ -1,5 +1,6 @@
 package com.newgrokchat.ui.chat
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.newgrokchat.NewGrokChatApp
@@ -14,8 +15,8 @@ import kotlinx.coroutines.launch
 
 class ChatViewModel : ViewModel() {
     
-    private val prefs = NewGrokChatApp.instance.prefs
-    private val apiClient = GrokApiClient()
+    private val prefs by lazy { NewGrokChatApp.instance.prefs }
+    private val apiClient by lazy { GrokApiClient() }
     
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
@@ -29,11 +30,9 @@ class ChatViewModel : ViewModel() {
     private val _currentConversation = MutableStateFlow<ChatConversation?>(null)
     val conversation: StateFlow<ChatConversation?> = _currentConversation.asStateFlow()
     
-    // 新消息数量（用户查看历史时计数）
     private val _newMessageCount = MutableStateFlow(0)
     val newMessageCount: StateFlow<Int> = _newMessageCount.asStateFlow()
     
-    // 是否在查看历史
     private val _isViewingHistory = MutableStateFlow(false)
     val isViewingHistory: StateFlow<Boolean> = _isViewingHistory.asStateFlow()
     
@@ -65,11 +64,16 @@ class ChatViewModel : ViewModel() {
     }
     
     private fun loadConversation() {
-        val conversation = prefs.loadCurrentConversation()
-        if (conversation != null) {
-            _currentConversation.value = conversation
-            _messages.value = conversation.messages.toList()
-        } else {
+        try {
+            val conversation = prefs.loadCurrentConversation()
+            if (conversation != null) {
+                _currentConversation.value = conversation
+                _messages.value = conversation.messages.toList()
+            } else {
+                newConversation()
+            }
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Failed to load conversation", e)
             newConversation()
         }
     }
@@ -123,6 +127,7 @@ class ChatViewModel : ViewModel() {
                     }
                 )
             } catch (e: Exception) {
+                Log.e("ChatViewModel", "sendMessage error", e)
                 _error.value = e.message ?: "未知错误"
             } finally {
                 _isLoading.value = false
@@ -147,11 +152,15 @@ class ChatViewModel : ViewModel() {
     }
     
     private fun saveConversation() {
-        val conv = _currentConversation.value?.copy(
-            messages = _messages.value.toMutableList(),
-            updatedAt = System.currentTimeMillis()
-        )
-        _currentConversation.value = conv
-        prefs.saveCurrentConversation(conv)
+        try {
+            val conv = _currentConversation.value?.copy(
+                messages = _messages.value.toMutableList(),
+                updatedAt = System.currentTimeMillis()
+            )
+            _currentConversation.value = conv
+            prefs.saveCurrentConversation(conv)
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Failed to save conversation", e)
+        }
     }
 }
