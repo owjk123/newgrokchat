@@ -77,46 +77,27 @@ class ChatViewModel : ViewModel() {
         _error.value = null
         
         viewModelScope.launch {
-            val aiMessage = Message(content = "", isUser = false, isStreaming = true)
-            val streamingMessages = _messages.value.toMutableList()
-            streamingMessages.add(aiMessage)
-            _messages.value = streamingMessages
-            
-            val fullResponse = StringBuilder()
-            
             try {
-                apiClient.streamMessage(
+                val result = apiClient.sendMessage(
                     endpoint = currentEndpoint,
                     apiKey = apiKey,
                     model = currentModel,
                     messages = updatedMessages
-                ).collect { chunk ->
-                    fullResponse.append(chunk)
-                    val currentIdx = _messages.value.indexOfLast { it.isStreaming }
-                    if (currentIdx >= 0) {
-                        val updated = _messages.value.toMutableList()
-                        updated[currentIdx] = Message(
-                            id = updated[currentIdx].id,
-                            content = fullResponse.toString(),
-                            isUser = false,
-                            isStreaming = false
-                        )
-                        _messages.value = updated
+                )
+                
+                result.fold(
+                    onSuccess = { response ->
+                        val aiMessage = Message(content = response, isUser = false)
+                        val finalMessages = _messages.value.toMutableList()
+                        finalMessages.add(aiMessage)
+                        _messages.value = finalMessages
+                    },
+                    onFailure = { e ->
+                        _error.value = e.message ?: "Unknown error"
                     }
-                }
+                )
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
-                val currentIdx = _messages.value.indexOfLast { it.isStreaming }
-                if (currentIdx >= 0) {
-                    val updated = _messages.value.toMutableList()
-                    updated[currentIdx] = Message(
-                        id = updated[currentIdx].id,
-                        content = "Error: ${e.message}",
-                        isUser = false,
-                        isStreaming = false
-                    )
-                    _messages.value = updated
-                }
             } finally {
                 _isLoading.value = false
                 saveConversation()
