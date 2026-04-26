@@ -20,36 +20,17 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
     
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2
-      with:
-        gradle-version: 8.2
+    - name: Create local.properties
+      run: echo "sdk.dir=/opt/android-sdk" > local.properties
     
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+    - name: Build with Gradle
+      run: |
+        chmod +x gradlew
+        ./gradlew assembleDebug --no-daemon --no-build-cache --no-configuration-cache
     
-    - name: Build debug APK
-      run: ./gradlew assembleDebug
-      
     - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/*.apk
-    
-    - name: Create Release APK
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        mkdir -p release
-        cp app/build/outputs/apk/debug/*.apk release/NewGrokChat-${{ github.ref_name }}.apk
-    
-    - name: Upload Release APK
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.upload_url }}
-        asset_path: release/NewGrokChat-${{ github.ref_name }}.apk
-        asset_name: NewGrokChat-${{ github.ref_name }}.apk
-        asset_content_type: application/vnd.android.package-archive
