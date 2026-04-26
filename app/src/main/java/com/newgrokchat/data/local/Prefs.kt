@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.newgrokchat.model.ChatConversation
+import com.newgrokchat.model.ApiConfig
 
 class Prefs(context: Context) {
     

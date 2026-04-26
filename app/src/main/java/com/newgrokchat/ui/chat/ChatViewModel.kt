@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.newgrokchat.NewGrokChatApp
 import com.newgrokchat.data.api.GrokApiClient
-import com.newgrokchat.data.local.ApiConfig
+import com.newgrokchat.model.ApiConfig
 import com.newgrokchat.model.ChatConversation
 import com.newgrokchat.model.Message
 import kotlinx.coroutines.flow.MutableStateFlow

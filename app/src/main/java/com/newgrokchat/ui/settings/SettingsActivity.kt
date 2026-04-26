@@ -19,7 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.newgrokchat.NewGrokChatApp
-import com.newgrokchat.data.local.ApiConfig
+import com.newgrokchat.model.ApiConfig
 import com.newgrokchat.databinding.ActivitySettingsBinding
 
 class SettingsActivity : AppCompatActivity() {
@@ -68,7 +68,7 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     private fun setupEndpointSelector() {
-        val adapter = ArrayAdapter(
+        val adapter = ArrayAdapter<String>(
             this,
             android.R.layout.simple_spinner_item,
             ApiConfig.ENDPOINTS

@@ -76,7 +76,7 @@ class ChatFragment : Fragment(), TextToSpeech.OnInitListener {
     }
     
     private fun setupModelSelector() {
-        val adapter = ArrayAdapter(
+        val adapter = ArrayAdapter<String>(
             requireContext(),
             android.R.layout.simple_spinner_item,
             viewModel.models
