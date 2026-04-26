@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#000000</color>
+    <color name="surface">#121212</color>
+    <color name="surface_variant">#1E1E1E</color>
+    
+    <color name="accent">#7B68EE</color>
+    <color name="accent_variant">#9370DB</color>
+    
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="text_hint">#707070</color>
+    
+    <color name="on_primary">#FFFFFF</color>
+    
+    <color name="message_user_bg">#2D2D2D</color>
+    <color name="message_user_text">#FFFFFF</color>
+    
+    <color name="message_ai_bg_start">#1A1A3E</color>
+    <color name="message_ai_bg_end">#2D1B4E</color>
+    <color name="message_ai_text">#E0E0FF</color>
+    
+    <color name="gradient_start">#7B68EE</color>
+    <color name="gradient_end">#4169E1</color>
+</resources>
