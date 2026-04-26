@@ -23,6 +23,26 @@ class Prefs(context: Context) {
         get() = prefs.getString(KEY_MODEL, ApiConfig.MODELS.first()) ?: ApiConfig.MODELS.first()
         set(value) = prefs.edit().putString(KEY_MODEL, value).apply()
     
+    // 系统提示词
+    var systemPrompt: String
+        get() = prefs.getString(KEY_SYSTEM_PROMPT, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
+    
+    // AI头像 (可以是emoji或图片URI，默认🤖)
+    var aiAvatar: String
+        get() = prefs.getString(KEY_AI_AVATAR, "🤖") ?: "🤖"
+        set(value) = prefs.edit().putString(KEY_AI_AVATAR, value).apply()
+    
+    // TTS开关
+    var ttsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TTS_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_TTS_ENABLED, value).apply()
+    
+    // TTS语速 (0.5 - 2.0)
+    var ttsSpeed: Float
+        get() = prefs.getFloat(KEY_TTS_SPEED, 1.0f)
+        set(value) = prefs.edit().putFloat(KEY_TTS_SPEED, value).apply()
+    
     fun saveConversations(conversations: List<ChatConversation>) {
         val json = gson.toJson(conversations)
         prefs.edit().putString(KEY_CONVERSATIONS, json).apply()
@@ -61,22 +81,11 @@ class Prefs(context: Context) {
         private const val KEY_API_KEY = "api_key"
         private const val KEY_ENDPOINT = "endpoint"
         private const val KEY_MODEL = "model"
+        private const val KEY_SYSTEM_PROMPT = "system_prompt"
+        private const val KEY_AI_AVATAR = "ai_avatar"
+        private const val KEY_TTS_ENABLED = "tts_enabled"
+        private const val KEY_TTS_SPEED = "tts_speed"
         private const val KEY_CONVERSATIONS = "conversations"
         private const val KEY_CURRENT_CONVERSATION = "current_conversation"
     }
-}
-
-object ApiConfig {
-    val ENDPOINTS = listOf(
-        "http://vip.apiyi.com:16888",
-        "http://api-cf.apiyi.com:16888",
-        "http://api.apiyi.com:16888",
-        "http://b.apiyi.com:16888"
-    )
-    
-    val MODELS = listOf(
-        "grok-4.20-beta",
-        "grok-3",
-        "grok-2-latest"
-    )
 }

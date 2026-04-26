@@ -12,7 +12,8 @@
         android:background="@color/surface"
         app:layout_constraintTop_toTopOf="parent"
         app:navigationIconTint="@color/text_primary"
-        app:titleTextColor="@color/text_primary" />
+        app:titleTextColor="@color/text_primary"
+        app:title="设置" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -26,10 +27,11 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- API配置 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="API Configuration"
+                android:text="API配置"
                 android:textColor="@color/accent"
                 android:textSize="14sp"
                 android:textStyle="bold"
@@ -38,7 +40,7 @@
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="API Key"
+                android:hint="API密钥"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 app:boxStrokeColor="@color/accent"
                 app:hintTextColor="@color/accent">
@@ -56,7 +58,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Select Endpoint"
+                android:text="选择端点"
                 android:textColor="@color/text_primary"
                 android:textSize="16sp"
                 android:layout_marginTop="24dp"
@@ -70,20 +72,159 @@
                 android:popupBackground="@color/surface"
                 android:padding="12dp" />
 
+            <!-- 系统提示词 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="系统提示词"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="设置AI的角色和行为..."
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                app:boxStrokeColor="@color/accent"
+                app:hintTextColor="@color/accent">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/edit_system_prompt"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minLines="3"
+                    android:maxLines="6"
+                    android:gravity="top"
+                    android:textColor="@color/text_primary"
+                    android:inputType="textMultiLine"
+                    android:importantForAutofill="no" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- AI头像设置 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AI头像"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- 头像预览 -->
+                <FrameLayout
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_marginEnd="16dp">
+
+                    <TextView
+                        android:id="@+id/avatar_preview_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:textSize="32sp"
+                        android:gravity="center"
+                        android:background="@drawable/bg_message_ai"
+                        android:text="🤖" />
+
+                    <ImageView
+                        android:id="@+id/avatar_preview_image"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="gone"
+                        android:scaleType="centerCrop"
+                        android:background="@drawable/bg_message_ai" />
+
+                </FrameLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_select_avatar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="选择头像"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:strokeColor="@color/accent"
+                    android:textColor="@color/accent" />
+
+            </LinearLayout>
+
+            <!-- TTS设置 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="语音朗读设置"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="启用语音朗读"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switch_tts"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_tts_speed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="语速: 1.0x"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone" />
+
+            <SeekBar
+                android:id="@+id/seekbar_tts_speed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:min="0"
+                android:max="15"
+                android:progress="5"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
+
+            <!-- 保存按钮 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_save"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
-                android:text="Save Settings"
+                android:text="保存设置"
                 android:textColor="@color/on_primary"
                 android:backgroundTint="@color/accent" />
 
+            <!-- 关于 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
-                android:text="About"
+                android:text="关于"
                 android:textColor="@color/accent"
                 android:textSize="14sp"
                 android:textStyle="bold" />
@@ -92,7 +233,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="NewGrokChat v1.0.0\nPowered by x.ai Grok API"
+                android:text="Grok聊天 v1.0.0\n由x.ai Grok API提供支持"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp"
                 android:lineSpacingExtra="4dp" />

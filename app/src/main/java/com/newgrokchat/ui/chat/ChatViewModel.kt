@@ -29,6 +29,14 @@ class ChatViewModel : ViewModel() {
     private val _currentConversation = MutableStateFlow<ChatConversation?>(null)
     val conversation: StateFlow<ChatConversation?> = _currentConversation.asStateFlow()
     
+    // 新消息数量（用户查看历史时计数）
+    private val _newMessageCount = MutableStateFlow(0)
+    val newMessageCount: StateFlow<Int> = _newMessageCount.asStateFlow()
+    
+    // 是否在查看历史
+    private val _isViewingHistory = MutableStateFlow(false)
+    val isViewingHistory: StateFlow<Boolean> = _isViewingHistory.asStateFlow()
+    
     val endpoints = ApiConfig.ENDPOINTS
     val models = ApiConfig.MODELS
     
@@ -43,6 +51,14 @@ class ChatViewModel : ViewModel() {
     var apiKey: String
         get() = prefs.apiKey
         set(value) { prefs.apiKey = value }
+    
+    var systemPrompt: String
+        get() = prefs.systemPrompt
+        set(value) { prefs.systemPrompt = value }
+    
+    var aiAvatar: String
+        get() = prefs.aiAvatar
+        set(value) { prefs.aiAvatar = value }
     
     init {
         loadConversation()
@@ -62,6 +78,7 @@ class ChatViewModel : ViewModel() {
         val conv = ChatConversation()
         _currentConversation.value = conv
         _messages.value = emptyList()
+        _newMessageCount.value = 0
         prefs.saveCurrentConversation(conv)
     }
     
@@ -76,13 +93,18 @@ class ChatViewModel : ViewModel() {
         _isLoading.value = true
         _error.value = null
         
+        if (!_isViewingHistory.value) {
+            _newMessageCount.value = 0
+        }
+        
         viewModelScope.launch {
             try {
                 val result = apiClient.sendMessage(
-                    endpoint = currentEndpoint,
+                    endpoints = endpoints,
                     apiKey = apiKey,
                     model = currentModel,
-                    messages = updatedMessages
+                    messages = updatedMessages,
+                    systemPrompt = systemPrompt
                 )
                 
                 result.fold(
@@ -91,13 +113,17 @@ class ChatViewModel : ViewModel() {
                         val finalMessages = _messages.value.toMutableList()
                         finalMessages.add(aiMessage)
                         _messages.value = finalMessages
+                        
+                        if (_isViewingHistory.value) {
+                            _newMessageCount.value = _newMessageCount.value + 1
+                        }
                     },
                     onFailure = { e ->
-                        _error.value = e.message ?: "Unknown error"
+                        _error.value = e.message ?: "未知错误"
                     }
                 )
             } catch (e: Exception) {
-                _error.value = e.message ?: "Unknown error"
+                _error.value = e.message ?: "未知错误"
             } finally {
                 _isLoading.value = false
                 saveConversation()
@@ -107,6 +133,17 @@ class ChatViewModel : ViewModel() {
     
     fun clearError() {
         _error.value = null
+    }
+    
+    fun setViewingHistory(viewing: Boolean) {
+        _isViewingHistory.value = viewing
+        if (!viewing) {
+            _newMessageCount.value = 0
+        }
+    }
+    
+    fun clearNewMessageCount() {
+        _newMessageCount.value = 0
     }
     
     private fun saveConversation() {

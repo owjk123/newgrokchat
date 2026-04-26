@@ -1,4 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">NewGrokChat</string>
+    <string name="app_name">Grok聊天</string>
+    
+    <!-- 通用 -->
+    <string name="settings">设置</string>
+    <string name="save">保存</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确认</string>
+    <string name="copy">复制</string>
+    <string name="speak">朗读</string>
+    <string name="copied">已复制到剪贴板</string>
+    <string name="new_message">有新消息</string>
+    <string name="jump_to_latest">跳转到最新</string>
+    
+    <!-- 设置页面 -->
+    <string name="api_configuration">API配置</string>
+    <string name="api_key">API密钥</string>
+    <string name="select_endpoint">选择端点</string>
+    <string name="system_prompt">系统提示词</string>
+    <string name="system_prompt_hint">设置AI的角色和行为...</string>
+    <string name="save_settings">保存设置</string>
+    
+    <!-- AI头像设置 -->
+    <string name="ai_avatar">AI头像</string>
+    <string name="select_ai_avatar">选择AI头像</string>
+    
+    <!-- TTS设置 -->
+    <string name="tts_settings">语音朗读设置</string>
+    <string name="enable_tts">启用语音朗读</string>
+    <string name="tts_speed">语速</string>
+    <string name="tts_speed_value">语速: %1$s</string>
+    
+    <!-- 聊天页面 -->
+    <string name="new_chat">新对话</string>
+    <string name="message_grok">发送消息给Grok...</string>
+    <string name="start_conversation">开始对话</string>
+    <string name="ask_grok">向Grok提问任何问题</string>
+    <string name="api_key_required">需要API密钥</string>
+    <string name="api_key_required_message">请先在设置中配置您的API密钥</string>
+    
+    <!-- 错误 -->
+    <string name="error">错误</string>
+    <string name="unknown_error">未知错误</string>
+    <string name="all_endpoints_unavailable">所有端点均不可用</string>
+    
+    <!-- 关于 -->
+    <string name="about">关于</string>
+    <string name="about_text">Grok聊天 v1.0.0\n由x.ai Grok API提供支持</string>
 </resources>

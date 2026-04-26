@@ -1,34 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingVertical="4dp">
+    android:paddingVertical="4dp"
+    android:paddingHorizontal="4dp">
 
-    <FrameLayout
-        android:id="@+id/message_bubble"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="start"
-        android:maxWidth="280dp"
-        android:background="@drawable/bg_message_ai"
-        android:padding="12dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/message_content"
+        <!-- AI头像 (仅AI消息显示) -->
+        <LinearLayout
+            android:id="@+id/ai_avatar_container"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginEnd="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/ai_avatar_text"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:textSize="24sp"
+                android:gravity="center"
+                android:background="@drawable/bg_message_ai"
+                android:text="🤖"
+                android:visibility="visible" />
+
+            <ImageView
+                android:id="@+id/ai_avatar_image"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:visibility="gone"
+                android:scaleType="centerCrop"
+                android:background="@drawable/bg_message_ai" />
+
+        </LinearLayout>
+
+        <!-- 消息气泡 -->
+        <LinearLayout
+            android:id="@+id/message_bubble"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/message_ai_text"
-            android:textSize="15sp"
-            android:lineSpacingExtra="2dp"
-            android:fontFamily="sans-serif" />
+            android:maxWidth="280dp"
+            android:background="@drawable/bg_message_ai"
+            android:padding="12dp"
+            android:orientation="vertical">
 
-        <ProgressBar
-            android:id="@+id/typing_indicator"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:visibility="gone"
-            android:indeterminateTint="@color/accent" />
+            <TextView
+                android:id="@+id/message_content"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/message_ai_text"
+                android:textSize="15sp"
+                android:lineSpacingExtra="2dp"
+                android:fontFamily="sans-serif" />
 
-    </FrameLayout>
+            <ProgressBar
+                android:id="@+id/typing_indicator"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:visibility="gone"
+                android:indeterminateTint="@color/accent" />
+
+            <!-- 操作按钮 -->
+            <LinearLayout
+                android:id="@+id/action_buttons"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp"
+                android:layout_gravity="end">
+
+                <ImageButton
+                    android:id="@+id/btn_copy"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_save"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="复制"
+                    android:scaleType="centerInside"
+                    android:padding="4dp"
+                    app:tint="@color/text_hint" />
+
+                <ImageButton
+                    android:id="@+id/btn_speak"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_btn_speak_now"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="朗读"
+                    android:scaleType="centerInside"
+                    android:padding="4dp"
+                    app:tint="@color/text_hint" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
 
 </FrameLayout>
