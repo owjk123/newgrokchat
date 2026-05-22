@@ -18,7 +18,7 @@ object ApiConfig {
     data class ChatRequest(
         val model: String,
         val messages: List<Map<String, String>>,
-        val stream: Boolean = true
+        val stream: Boolean = false  // 修复: 使用非流式请求，与解析逻辑一致
     )
     
     data class ChatResponse(
@@ -28,8 +28,8 @@ object ApiConfig {
     )
     
     data class Choice(
-        val delta: Map<String, String>?,
-        val message: Map<String, String>?,
+        val delta: Map<String, Any?>?,
+        val message: Map<String, Any?>?,
         val finish_reason: String?
     )
     
