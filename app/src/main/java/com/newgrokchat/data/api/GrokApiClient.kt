@@ -183,7 +183,7 @@ class GrokApiClient {
                 }
                 
                 // content 可能为 null，需要检查
-                val content = messageMap["content"]
+                val content = messageMap["content"] as? String
                 if (content.isNullOrBlank()) {
                     return Result.failure(Exception("AI返回了空响应内容，请重试"))
                 }
