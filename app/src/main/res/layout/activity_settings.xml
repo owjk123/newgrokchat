@@ -72,6 +72,42 @@
                 android:popupBackground="@color/surface"
                 android:padding="12dp" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="选择模型"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp" />
+
+            <Spinner
+                android:id="@+id/spinner_model"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/spinner_background"
+                android:popupBackground="@color/surface"
+                android:padding="12dp" />
+
+            <!-- 测试连接按钮 -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_test_connection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="测试连接"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="@color/accent"
+                android:textColor="@color/accent" />
+
+            <TextView
+                android:id="@+id/test_result_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
             <!-- 系统提示词 -->
             <TextView
                 android:layout_width="wrap_content"
@@ -203,10 +239,8 @@
                 android:id="@+id/seekbar_tts_speed"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:min="0"
-                android:max="15"
-                android:progress="5"
                 android:layout_marginTop="8dp"
+                android:max="15"
                 android:visibility="gone" />
 
             <!-- 保存按钮 -->
@@ -215,28 +249,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
-                android:text="保存设置"
-                android:textColor="@color/on_primary"
+                android:text="@string/save_settings"
                 android:backgroundTint="@color/accent" />
-
-            <!-- 关于 -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:text="关于"
-                android:textColor="@color/accent"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Grok聊天 v1.0.0\n由x.ai Grok API提供支持"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4dp" />
 
         </LinearLayout>
 
