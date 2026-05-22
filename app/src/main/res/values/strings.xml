@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Grok聊天</string>
+    <string name="app_name">Grok聊天 Pro</string>
     
     <!-- 通用 -->
     <string name="settings">设置</string>
@@ -17,6 +17,8 @@
     <string name="api_configuration">API配置</string>
     <string name="api_key">API密钥</string>
     <string name="select_endpoint">选择端点</string>
+    <string name="select_model">选择模型</string>
+    <string name="test_connection">测试连接</string>
     <string name="system_prompt">系统提示词</string>
     <string name="system_prompt_hint">设置AI的角色和行为...</string>
     <string name="save_settings">保存设置</string>
@@ -33,18 +35,24 @@
     
     <!-- 聊天页面 -->
     <string name="new_chat">新对话</string>
+    <string name="clear_chat">清空对话</string>
     <string name="message_grok">发送消息给Grok...</string>
     <string name="start_conversation">开始对话</string>
     <string name="ask_grok">向Grok提问任何问题</string>
     <string name="api_key_required">需要API密钥</string>
     <string name="api_key_required_message">请先在设置中配置您的API密钥</string>
+    <string name="waiting_for_reply">正在等待回复...</string>
+    <string name="retry">重试</string>
+    <string name="response_timeout">响应超时，请重试</string>
+    <string name="network_unavailable">网络不可用，请检查网络连接</string>
     
     <!-- 错误 -->
     <string name="error">错误</string>
     <string name="unknown_error">未知错误</string>
     <string name="all_endpoints_unavailable">所有端点均不可用</string>
+    <string name="send_failed">发送失败</string>
     
     <!-- 关于 -->
     <string name="about">关于</string>
-    <string name="about_text">Grok聊天 v1.0.0\n由x.ai Grok API提供支持</string>
+    <string name="about_text">Grok聊天 Pro v1.1.0\n由x.ai Grok API提供支持</string>
 </resources>
