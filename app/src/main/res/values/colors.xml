@@ -22,4 +22,7 @@
     
     <color name="gradient_start">#7B68EE</color>
     <color name="gradient_end">#4169E1</color>
+    
+    <color name="success_green">#4CAF50</color>
+    <color name="error_red">#F44336</color>
 </resources>
