@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.MenuItem
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
@@ -18,14 +19,22 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.newgrokchat.NewGrokChatApp
-import com.newgrokchat.model.ApiConfig
+import com.newgrokchat.R
+import com.newgrokchat.data.api.GrokApiClient
 import com.newgrokchat.databinding.ActivitySettingsBinding
+import com.newgrokchat.model.ApiConfig
+import com.newgrokchat.model.Message
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsActivity : AppCompatActivity() {
     
     private lateinit var binding: ActivitySettingsBinding
     private val prefs by lazy { NewGrokChatApp.instance.prefs }
+    private val apiClient by lazy { GrokApiClient() }
     
     private val pickImage = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -53,8 +62,10 @@ class SettingsActivity : AppCompatActivity() {
         
         setupToolbar()
         setupEndpointSelector()
+        setupModelSelector()
         loadSettings()
         setupSaveButton()
+        setupTestConnectionButton()
         setupAvatarSelector()
         setupTtsSettings()
     }
@@ -78,12 +89,28 @@ class SettingsActivity : AppCompatActivity() {
         binding.spinnerEndpoint.adapter = adapter
     }
     
+    private fun setupModelSelector() {
+        val adapter = ArrayAdapter<String>(
+            this,
+            android.R.layout.simple_spinner_item,
+            ApiConfig.MODELS
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        binding.spinnerModel.adapter = adapter
+    }
+    
     private fun loadSettings() {
         binding.editApiKey.setText(prefs.apiKey)
         
         val endpointIndex = ApiConfig.ENDPOINTS.indexOf(prefs.selectedEndpoint)
         if (endpointIndex >= 0) {
             binding.spinnerEndpoint.setSelection(endpointIndex)
+        }
+        
+        val modelIndex = ApiConfig.MODELS.indexOf(prefs.selectedModel)
+        if (modelIndex >= 0) {
+            binding.spinnerModel.setSelection(modelIndex)
         }
         
         // 系统提示词
@@ -103,17 +130,17 @@ class SettingsActivity : AppCompatActivity() {
         val avatar = prefs.aiAvatar
         if (avatar.startsWith("http") || avatar.startsWith("content://") || avatar.startsWith("file://")) {
             try {
-                binding.avatarPreviewImage.visibility = android.view.View.VISIBLE
-                binding.avatarPreviewText.visibility = android.view.View.GONE
+                binding.avatarPreviewImage.visibility = View.VISIBLE
+                binding.avatarPreviewText.visibility = View.GONE
                 binding.avatarPreviewImage.setImageURI(Uri.parse(avatar))
             } catch (e: Exception) {
-                binding.avatarPreviewText.visibility = android.view.View.VISIBLE
-                binding.avatarPreviewImage.visibility = android.view.View.GONE
+                binding.avatarPreviewText.visibility = View.VISIBLE
+                binding.avatarPreviewImage.visibility = View.GONE
                 binding.avatarPreviewText.text = avatar
             }
         } else {
-            binding.avatarPreviewText.visibility = android.view.View.VISIBLE
-            binding.avatarPreviewImage.visibility = android.view.View.GONE
+            binding.avatarPreviewText.visibility = View.VISIBLE
+            binding.avatarPreviewImage.visibility = View.GONE
             binding.avatarPreviewText.text = avatar
         }
     }
@@ -191,15 +218,72 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     private fun updateTtsVisibility() {
-        val visible = if (binding.switchTts.isChecked) android.view.View.VISIBLE else android.view.View.GONE
+        val visible = if (binding.switchTts.isChecked) View.VISIBLE else View.GONE
         binding.textTtsSpeed.visibility = visible
         binding.seekbarTtsSpeed.visibility = visible
+    }
+    
+    private fun setupTestConnectionButton() {
+        binding.btnTestConnection.setOnClickListener {
+            testConnection()
+        }
+    }
+    
+    private fun testConnection() {
+        val apiKey = binding.editApiKey.text.toString().trim()
+        val endpoint = binding.spinnerEndpoint.selectedItem as String
+        val model = binding.spinnerModel.selectedItem as String
+        
+        if (apiKey.isEmpty()) {
+            Toast.makeText(this, "请先输入API密钥", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        binding.btnTestConnection.isEnabled = false
+        binding.btnTestConnection.text = "测试中..."
+        binding.testResultText.visibility = View.GONE
+        
+        lifecycleScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    apiClient.sendMessage(
+                        endpoints = listOf(endpoint),
+                        apiKey = apiKey,
+                        model = model,
+                        messages = listOf(Message(content = "Hi", isUser = true)),
+                        systemPrompt = ""
+                    )
+                }
+                
+                binding.btnTestConnection.isEnabled = true
+                binding.btnTestConnection.text = "测试连接"
+                binding.testResultText.visibility = View.VISIBLE
+                
+                result.fold(
+                    onSuccess = { response ->
+                        binding.testResultText.text = "✓ 连接成功！收到回复: ${response.take(50)}..."
+                        binding.testResultText.setTextColor(getColor(R.color.success_green))
+                    },
+                    onFailure = { e ->
+                        binding.testResultText.text = "✗ 连接失败: ${e.message}"
+                        binding.testResultText.setTextColor(getColor(R.color.error_red))
+                    }
+                )
+            } catch (e: Exception) {
+                binding.btnTestConnection.isEnabled = true
+                binding.btnTestConnection.text = "测试连接"
+                binding.testResultText.visibility = View.VISIBLE
+                binding.testResultText.text = "✗ 测试异常: ${e.message}"
+                binding.testResultText.setTextColor(getColor(R.color.error_red))
+            }
+        }
     }
     
     private fun setupSaveButton() {
         binding.btnSave.setOnClickListener {
             val apiKey = binding.editApiKey.text.toString().trim()
             val endpoint = binding.spinnerEndpoint.selectedItem as String
+            val model = binding.spinnerModel.selectedItem as String
             val systemPrompt = binding.editSystemPrompt.text.toString().trim()
             
             if (apiKey.isEmpty()) {
@@ -209,6 +293,7 @@ class SettingsActivity : AppCompatActivity() {
             
             prefs.apiKey = apiKey
             prefs.selectedEndpoint = endpoint
+            prefs.selectedModel = model  // 保存选择的模型
             prefs.systemPrompt = systemPrompt
             
             Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show()
