@@ -44,6 +44,11 @@ class Prefs(context: Context) {
         get() = prefs.getFloat(KEY_TTS_SPEED, 1.0f)
         set(value) = prefs.edit().putFloat(KEY_TTS_SPEED, value).apply()
     
+    // 会话自动保存开关
+    var conversationAutoSave: Boolean
+        get() = prefs.getBoolean(KEY_CONVERSATION_AUTO_SAVE, true)
+        set(value) = prefs.edit().putBoolean(KEY_CONVERSATION_AUTO_SAVE, value).apply()
+    
     fun saveConversations(conversations: List<ChatConversation>) {
         val json = gson.toJson(conversations)
         prefs.edit().putString(KEY_CONVERSATIONS, json).apply()
@@ -86,6 +91,7 @@ class Prefs(context: Context) {
         private const val KEY_AI_AVATAR = "ai_avatar"
         private const val KEY_TTS_ENABLED = "tts_enabled"
         private const val KEY_TTS_SPEED = "tts_speed"
+        private const val KEY_CONVERSATION_AUTO_SAVE = "conversation_auto_save"
         private const val KEY_CONVERSATIONS = "conversations"
         private const val KEY_CURRENT_CONVERSATION = "current_conversation"
     }
