@@ -13,6 +13,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.net.SocketException
+import java.io.InterruptedIOException
 import java.util.concurrent.TimeUnit
 
 class GrokApiClient {
@@ -87,7 +88,7 @@ class GrokApiClient {
                     return result
                 }
                 // 如果需要重试且还有重试次数，记录并继续
-                lastException = result.exceptionOrNull()
+                lastException = result.exceptionOrNull() as? Exception
             } catch (e: Exception) {
                 lastException = e
                 if (!shouldRetryOnException(e) || attempt >= MAX_RETRIES - 1) {
@@ -250,7 +251,7 @@ class GrokApiClient {
             is IOException -> true
             is java.net.ConnectException -> true
             is java.net.UnknownHostException -> true
-            is java.net.InterruptedIOException -> true
+            is InterruptedIOException -> true
             else -> false
         }
     }
