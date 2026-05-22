@@ -5,15 +5,22 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
@@ -21,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.newgrokchat.R
 import com.newgrokchat.databinding.FragmentChatBinding
 import com.newgrokchat.ui.settings.SettingsActivity
 import kotlinx.coroutines.launch
@@ -67,12 +75,35 @@ class ChatFragment : Fragment(), TextToSpeech.OnInitListener {
     
     private fun setupToolbar() {
         binding.btnNewChat.setOnClickListener {
-            viewModel.newConversation()
+            showNewChatDialog()
         }
         
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(requireContext(), SettingsActivity::class.java))
         }
+    }
+    
+    private fun showNewChatDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("新对话")
+            .setMessage("确定要开始新的对话吗？当前对话将被清空。")
+            .setPositiveButton("确定") { _, _ ->
+                viewModel.newConversation()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+    
+    private fun showClearChatDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("清空对话")
+            .setMessage("确定要清空当前对话吗？此操作不可撤销。")
+            .setPositiveButton("清空") { _, _ ->
+                viewModel.clearCurrentConversation()
+                Toast.makeText(requireContext(), "对话已清空", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
     
     private fun setupModelSelector() {
@@ -227,10 +258,27 @@ class ChatFragment : Fragment(), TextToSpeech.OnInitListener {
                     showApiKeyDialog()
                     return@setOnClickListener
                 }
+                
+                // 检查网络状态
+                if (!isNetworkAvailable()) {
+                    Toast.makeText(requireContext(), "网络不可用，请检查网络连接", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                
                 binding.editMessage.text?.clear()
                 viewModel.sendMessage(content)
             }
         }
+    }
+    
+    /**
+     * 检查网络是否可用
+     */
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
     
     private fun setupNewMessageButton() {
@@ -249,6 +297,20 @@ class ChatFragment : Fragment(), TextToSpeech.OnInitListener {
             .setMessage("请先在设置中配置您的API密钥")
             .setPositiveButton("设置") { _, _ ->
                 startActivity(Intent(requireContext(), SettingsActivity::class.java))
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+    
+    /**
+     * 显示重试对话框
+     */
+    private fun showRetryDialog(errorMessage: String) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("发送失败")
+            .setMessage(errorMessage)
+            .setPositiveButton("重试") { _, _ ->
+                viewModel.retryLastMessage()
             }
             .setNegativeButton("取消", null)
             .show()
@@ -273,14 +335,32 @@ class ChatFragment : Fragment(), TextToSpeech.OnInitListener {
                     viewModel.isLoading.collect { isLoading ->
                         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
                         binding.btnSend.isEnabled = !isLoading
+                        binding.waitingHint.visibility = if (isLoading) View.VISIBLE else View.GONE
                     }
                 }
                 
                 launch {
                     viewModel.error.collect { error ->
                         error?.let {
+                            // 显示错误toast
                             Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
+                            // 如果可以重试，显示重试对话框
+                            if (viewModel.canRetry) {
+                                showRetryDialog(it)
+                            }
                             viewModel.clearError()
+                        }
+                    }
+                }
+                
+                launch {
+                    viewModel.timeoutMessage.collect { timeoutMsg ->
+                        timeoutMsg?.let {
+                            Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
+                            if (viewModel.canRetry) {
+                                showRetryDialog(it)
+                            }
+                            viewModel.clearTimeoutMessage()
                         }
                     }
                 }
