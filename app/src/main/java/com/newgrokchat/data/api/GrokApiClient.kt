@@ -259,7 +259,7 @@ class GrokApiClient {
     /**
      * 判断是否不应该重试（例如明确的应用层错误）
      */
-    private fun shouldNotRetry(e: Exception?): Boolean {
+    private fun shouldNotRetry(e: Throwable?): Boolean {
         if (e == null) return false
         val message = e.message ?: ""
         // 这些错误重试也不会改变结果
