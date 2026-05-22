@@ -8,6 +8,8 @@ import com.newgrokchat.data.api.GrokApiClient
 import com.newgrokchat.model.ApiConfig
 import com.newgrokchat.model.ChatConversation
 import com.newgrokchat.model.Message
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +37,23 @@ class ChatViewModel : ViewModel() {
     
     private val _isViewingHistory = MutableStateFlow(false)
     val isViewingHistory: StateFlow<Boolean> = _isViewingHistory.asStateFlow()
+    
+    private val _timeoutMessage = MutableStateFlow<String?>(null)
+    val timeoutMessage: StateFlow<String?> = _timeoutMessage.asStateFlow()
+    
+    private val _waitingForReply = MutableStateFlow(false)
+    val waitingForReply: StateFlow<Boolean> = _waitingForReply.asStateFlow()
+    
+    // 保存最后一条用户消息，用于重试
+    private var lastUserMessage: String? = null
+    
+    // 超时检测 Job
+    private var timeoutJob: Job? = null
+    
+    companion object {
+        private const val TAG = "ChatViewModel"
+        private const val RESPONSE_TIMEOUT_MS = 120_000L // 120秒超时
+    }
     
     val endpoints = ApiConfig.ENDPOINTS
     val models = ApiConfig.MODELS
@@ -73,7 +92,7 @@ class ChatViewModel : ViewModel() {
                 newConversation()
             }
         } catch (e: Exception) {
-            Log.e("ChatViewModel", "Failed to load conversation", e)
+            Log.e(TAG, "Failed to load conversation", e)
             newConversation()
         }
     }
@@ -83,11 +102,48 @@ class ChatViewModel : ViewModel() {
         _currentConversation.value = conv
         _messages.value = emptyList()
         _newMessageCount.value = 0
+        _timeoutMessage.value = null
+        lastUserMessage = null
+        timeoutJob?.cancel()
         prefs.saveCurrentConversation(conv)
     }
     
+    /**
+     * 清空当前对话（不创建新对话，保留 Conversation 对象）
+     */
+    fun clearCurrentConversation() {
+        val conv = ChatConversation()
+        _currentConversation.value = conv
+        _messages.value = emptyList()
+        _newMessageCount.value = 0
+        _timeoutMessage.value = null
+        lastUserMessage = null
+        timeoutJob?.cancel()
+        saveConversation()
+    }
+    
+    /**
+     * 重发上一条失败的消息
+     */
+    fun retryLastMessage() {
+        lastUserMessage?.let { message ->
+            if (!_isLoading.value) {
+                sendMessage(message)
+            }
+        }
+    }
+    
+    /**
+     * 检查是否可以重试
+     */
+    val canRetry: Boolean
+        get() = lastUserMessage != null && !_isLoading.value
+    
     fun sendMessage(content: String) {
         if (content.isBlank() || _isLoading.value) return
+        
+        // 保存用户消息用于可能的重试
+        lastUserMessage = content
         
         val userMessage = Message(content = content, isUser = true)
         val updatedMessages = _messages.value.toMutableList()
@@ -96,10 +152,15 @@ class ChatViewModel : ViewModel() {
         
         _isLoading.value = true
         _error.value = null
+        _timeoutMessage.value = null
+        _waitingForReply.value = true
         
         if (!_isViewingHistory.value) {
             _newMessageCount.value = 0
         }
+        
+        // 启动超时检测
+        startTimeoutTimer()
         
         viewModelScope.launch {
             try {
@@ -111,6 +172,9 @@ class ChatViewModel : ViewModel() {
                     systemPrompt = systemPrompt
                 )
                 
+                // 取消超时检测
+                timeoutJob?.cancel()
+                
                 result.fold(
                     onSuccess = { response ->
                         val aiMessage = Message(content = response, isUser = false)
@@ -121,23 +185,50 @@ class ChatViewModel : ViewModel() {
                         if (_isViewingHistory.value) {
                             _newMessageCount.value = _newMessageCount.value + 1
                         }
+                        
+                        // 成功响应后清除重试消息
+                        lastUserMessage = null
                     },
                     onFailure = { e ->
                         _error.value = e.message ?: "未知错误"
+                        // 失败后保留用户消息用于重试
                     }
                 )
             } catch (e: Exception) {
-                Log.e("ChatViewModel", "sendMessage error", e)
+                Log.e(TAG, "sendMessage error", e)
                 _error.value = e.message ?: "未知错误"
+                // 失败后保留用户消息用于重试
             } finally {
                 _isLoading.value = false
+                _waitingForReply.value = false
                 saveConversation()
+            }
+        }
+    }
+    
+    /**
+     * 启动超时检测定时器
+     */
+    private fun startTimeoutTimer() {
+        timeoutJob?.cancel()
+        timeoutJob = viewModelScope.launch {
+            delay(RESPONSE_TIMEOUT_MS)
+            // 只有在仍然等待回复时才显示超时
+            if (_waitingForReply.value && _isLoading.value) {
+                _isLoading.value = false
+                _waitingForReply.value = false
+                _timeoutMessage.value = "响应超时，请重试"
+                Log.w(TAG, "Response timeout after ${RESPONSE_TIMEOUT_MS / 1000}s")
             }
         }
     }
     
     fun clearError() {
         _error.value = null
+    }
+    
+    fun clearTimeoutMessage() {
+        _timeoutMessage.value = null
     }
     
     fun setViewingHistory(viewing: Boolean) {
@@ -153,14 +244,20 @@ class ChatViewModel : ViewModel() {
     
     private fun saveConversation() {
         try {
+            val currentTime = System.currentTimeMillis()
             val conv = _currentConversation.value?.copy(
                 messages = _messages.value.toMutableList(),
-                updatedAt = System.currentTimeMillis()
+                updatedAt = currentTime  // 同步更新会话时间戳
             )
             _currentConversation.value = conv
             prefs.saveCurrentConversation(conv)
         } catch (e: Exception) {
-            Log.e("ChatViewModel", "Failed to save conversation", e)
+            Log.e(TAG, "Failed to save conversation", e)
         }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        timeoutJob?.cancel()
     }
 }
