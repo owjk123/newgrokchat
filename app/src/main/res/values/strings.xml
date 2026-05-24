@@ -20,7 +20,7 @@
     <string name="select_model">选择模型</string>
     <string name="test_connection">测试连接</string>
     <string name="system_prompt">系统提示词</string>
-    <string name="system_prompt_hint">设置AI的角色和行为...</string>
+    <string name="system_prompt_hint">设置AI的角色和行为…</string>
     <string name="save_settings">保存设置</string>
     
     <!-- AI头像设置 -->
@@ -36,15 +36,35 @@
     <!-- 聊天页面 -->
     <string name="new_chat">新对话</string>
     <string name="clear_chat">清空对话</string>
-    <string name="message_grok">发送消息给Grok...</string>
+    <string name="message_grok">发送消息给Grok…</string>
     <string name="start_conversation">开始对话</string>
     <string name="ask_grok">向Grok提问任何问题</string>
     <string name="api_key_required">需要API密钥</string>
     <string name="api_key_required_message">请先在设置中配置您的API密钥</string>
-    <string name="waiting_for_reply">正在等待回复...</string>
+    <string name="waiting_for_reply">正在等待回复…</string>
     <string name="retry">重试</string>
     <string name="response_timeout">响应超时，请重试</string>
     <string name="network_unavailable">网络不可用，请检查网络连接</string>
+    
+    <!-- Bug 3修复: 图片附件 -->
+    <string name="add_attachment">添加附件</string>
+    <string name="pick_from_gallery">从相册选择</string>
+    <string name="take_photo">拍照</string>
+    <string name="max_images_hint">最多选择3张图片</string>
+    <string name="image_process_failed">图片处理失败</string>
+    
+    <!-- Bug 5修复: 对话列表 -->
+    <string name="conversation_list">对话列表</string>
+    <string name="no_conversations">暂无历史对话</string>
+    <string name="delete_conversation">删除对话</string>
+    <string name="delete_conversation_confirm">确定要删除这个对话吗？</string>
+    
+    <!-- Bug 6修复: TTS -->
+    <string name="tts_not_enabled">语音朗读未开启</string>
+    <string name="tts_not_enabled_message">请先在设置中开启语音朗读功能</string>
+    <string name="tts_not_available">语音引擎不可用</string>
+    <string name="tts_not_available_message">您的设备可能未安装中文语音数据，是否前往系统设置安装？</string>
+    <string name="go_to_settings">去设置</string>
     
     <!-- 错误 -->
     <string name="error">错误</string>
@@ -54,5 +74,5 @@
     
     <!-- 关于 -->
     <string name="about">关于</string>
-    <string name="about_text">Grok聊天 Pro v1.1.0\n由x.ai Grok API提供支持</string>
+    <string name="about_text">Grok聊天 Pro v1.2.0\n由x.ai Grok API提供支持</string>
 </resources>

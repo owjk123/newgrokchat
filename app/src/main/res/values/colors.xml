@@ -26,3 +26,5 @@
     <color name="success_green">#4CAF50</color>
     <color name="error_red">#F44336</color>
 </resources>
+    <!-- Bug 3修复: 附件预览背景色 -->
+    <color name="attachment_preview_bg">#1A1A1A</color>

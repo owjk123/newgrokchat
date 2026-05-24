@@ -15,10 +15,11 @@ object ApiConfig {
         "grok-2-latest"
     )
     
+    // Bug 3修复: messages类型改为 List<Map<String, Any>> 支持多模态content
     data class ChatRequest(
         val model: String,
-        val messages: List<Map<String, String>>,
-        val stream: Boolean = false  // 修复: 使用非流式请求，与解析逻辑一致
+        val messages: List<Map<String, Any>>,
+        val stream: Boolean = false
     )
     
     data class ChatResponse(

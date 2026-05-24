@@ -61,6 +61,43 @@
                 android:lineSpacingExtra="2dp"
                 android:fontFamily="sans-serif" />
 
+            <!-- Bug 3修复: 图片容器 -->
+            <LinearLayout
+                android:id="@+id/image_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                android:layout_marginTop="4dp">
+
+                <ImageView
+                    android:id="@+id/message_image_1"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone"
+                    android:layout_marginEnd="4dp"
+                    android:background="@color/surface_variant" />
+
+                <ImageView
+                    android:id="@+id/message_image_2"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone"
+                    android:layout_marginEnd="4dp"
+                    android:background="@color/surface_variant" />
+
+                <ImageView
+                    android:id="@+id/message_image_3"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone"
+                    android:background="@color/surface_variant" />
+
+            </LinearLayout>
+
             <ProgressBar
                 android:id="@+id/typing_indicator"
                 android:layout_width="20dp"

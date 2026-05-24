@@ -6,11 +6,13 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.newgrokchat.model.ChatConversation
 import com.newgrokchat.model.ApiConfig
+import java.io.File
 
 class Prefs(context: Context) {
     
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
+    private val appContext = context.applicationContext
     
     var apiKey: String
         get() = prefs.getString(KEY_API_KEY, "") ?: ""
@@ -29,9 +31,16 @@ class Prefs(context: Context) {
         get() = prefs.getString(KEY_SYSTEM_PROMPT, "") ?: ""
         set(value) = prefs.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
     
-    // AI头像 (可以是emoji或图片URI，默认🤖)
+    // Bug 4修复: AI头像 - 优先从内部存储读取
     var aiAvatar: String
-        get() = prefs.getString(KEY_AI_AVATAR, "🤖") ?: "🤖"
+        get() {
+            // 优先检查内部存储的头像文件
+            val avatarFile = File(appContext.filesDir, AVATAR_FILENAME)
+            if (avatarFile.exists()) {
+                return "file://${avatarFile.absolutePath}"
+            }
+            return prefs.getString(KEY_AI_AVATAR, "🤖") ?: "🤖"
+        }
         set(value) = prefs.edit().putString(KEY_AI_AVATAR, value).apply()
     
     // TTS开关
@@ -49,6 +58,12 @@ class Prefs(context: Context) {
         get() = prefs.getBoolean(KEY_CONVERSATION_AUTO_SAVE, true)
         set(value) = prefs.edit().putBoolean(KEY_CONVERSATION_AUTO_SAVE, value).apply()
     
+    // 当前活跃对话ID
+    var activeConversationId: String
+        get() = prefs.getString(KEY_ACTIVE_CONVERSATION_ID, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_ACTIVE_CONVERSATION_ID, value).apply()
+    
+    // Bug 5修复: 对话列表管理
     fun saveConversations(conversations: List<ChatConversation>) {
         val json = gson.toJson(conversations)
         prefs.edit().putString(KEY_CONVERSATIONS, json).apply()
@@ -64,12 +79,35 @@ class Prefs(context: Context) {
         }
     }
     
+    // Bug 5修复: 增加或更新对话到列表
+    fun addOrUpdateConversation(conversation: ChatConversation) {
+        val conversations = loadConversations().toMutableList()
+        val existingIndex = conversations.indexOfFirst { it.id == conversation.id }
+        if (existingIndex >= 0) {
+            conversations[existingIndex] = conversation
+        } else {
+            conversations.add(0, conversation)
+        }
+        // 按updatedAt倒序排列
+        conversations.sortByDescending { it.updatedAt }
+        saveConversations(conversations)
+    }
+    
+    // Bug 5修复: 删除对话
+    fun deleteConversation(conversationId: String) {
+        val conversations = loadConversations().toMutableList()
+        conversations.removeAll { it.id == conversationId }
+        saveConversations(conversations)
+    }
+    
     fun saveCurrentConversation(conversation: ChatConversation?) {
         if (conversation == null) {
             prefs.edit().remove(KEY_CURRENT_CONVERSATION).apply()
         } else {
             val json = gson.toJson(conversation)
             prefs.edit().putString(KEY_CURRENT_CONVERSATION, json).apply()
+            // Bug 5修复: 同时保存到对话列表
+            addOrUpdateConversation(conversation)
         }
     }
     
@@ -94,5 +132,8 @@ class Prefs(context: Context) {
         private const val KEY_CONVERSATION_AUTO_SAVE = "conversation_auto_save"
         private const val KEY_CONVERSATIONS = "conversations"
         private const val KEY_CURRENT_CONVERSATION = "current_conversation"
+        private const val KEY_ACTIVE_CONVERSATION_ID = "active_conversation_id"
+        // Bug 4修复: 内部存储头像文件名
+        const val AVATAR_FILENAME = "ai_avatar.png"
     }
 }

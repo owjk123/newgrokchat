@@ -32,6 +32,10 @@ class ChatViewModel : ViewModel() {
     private val _currentConversation = MutableStateFlow<ChatConversation?>(null)
     val conversation: StateFlow<ChatConversation?> = _currentConversation.asStateFlow()
     
+    // Bug 5修复: 对话列表
+    private val _conversationList = MutableStateFlow<List<ChatConversation>>(emptyList())
+    val conversationList: StateFlow<List<ChatConversation>> = _conversationList.asStateFlow()
+    
     private val _newMessageCount = MutableStateFlow(0)
     val newMessageCount: StateFlow<Int> = _newMessageCount.asStateFlow()
     
@@ -50,9 +54,12 @@ class ChatViewModel : ViewModel() {
     // 超时检测 Job
     private var timeoutJob: Job? = null
     
+    // Bug 3修复: 保存待发送的图片base64列表
+    private var pendingImageBase64List: List<String> = emptyList()
+    
     companion object {
         private const val TAG = "ChatViewModel"
-        private const val RESPONSE_TIMEOUT_MS = 120_000L // 120秒超时
+        private const val RESPONSE_TIMEOUT_MS = 120_000L
     }
     
     val endpoints = ApiConfig.ENDPOINTS
@@ -80,6 +87,7 @@ class ChatViewModel : ViewModel() {
     
     init {
         loadConversation()
+        loadConversationList()
     }
     
     private fun loadConversation() {
@@ -97,20 +105,77 @@ class ChatViewModel : ViewModel() {
         }
     }
     
+    // Bug 5修复: 加载对话列表
+    private fun loadConversationList() {
+        _conversationList.value = prefs.loadConversations()
+    }
+    
+    fun refreshConversationList() {
+        _conversationList.value = prefs.loadConversations()
+    }
+    
     fun newConversation() {
+        // Bug 5修复: 保存当前对话到列表
+        saveCurrentConversationToList()
+        
         val conv = ChatConversation()
         _currentConversation.value = conv
         _messages.value = emptyList()
         _newMessageCount.value = 0
         _timeoutMessage.value = null
         lastUserMessage = null
+        pendingImageBase64List = emptyList()
         timeoutJob?.cancel()
         prefs.saveCurrentConversation(conv)
+        prefs.activeConversationId = conv.id
+        
+        refreshConversationList()
     }
     
-    /**
-     * 清空当前对话（不创建新对话，保留 Conversation 对象）
-     */
+    // Bug 5修复: 切换到指定对话
+    fun switchToConversation(conversationId: String) {
+        // 先保存当前对话
+        saveCurrentConversationToList()
+        
+        val conversations = prefs.loadConversations()
+        val target = conversations.find { it.id == conversationId }
+        if (target != null) {
+            _currentConversation.value = target
+            _messages.value = target.messages.toList()
+            prefs.saveCurrentConversation(target)
+            prefs.activeConversationId = target.id
+            _newMessageCount.value = 0
+        }
+    }
+    
+    // Bug 5修复: 删除对话
+    fun deleteConversation(conversationId: String) {
+        prefs.deleteConversation(conversationId)
+        refreshConversationList()
+        
+        // 如果删除的是当前对话，创建新对话
+        if (_currentConversation.value?.id == conversationId) {
+            newConversation()
+        }
+    }
+    
+    // Bug 5修复: 保存当前对话到列表
+    private fun saveCurrentConversationToList() {
+        val conv = _currentConversation.value ?: return
+        if (conv.messages.isEmpty()) return
+        
+        // 自动生成标题：取第一条用户消息的前20个字符
+        if (conv.title == "New Chat") {
+            val firstUserMsg = conv.messages.firstOrNull { it.isUser }
+            if (firstUserMsg != null) {
+                conv.title = firstUserMsg.content.take(20).replace("\n", " ")
+                if (firstUserMsg.content.length > 20) conv.title += "..."
+            }
+        }
+        conv.updatedAt = System.currentTimeMillis()
+        prefs.addOrUpdateConversation(conv)
+    }
+    
     fun clearCurrentConversation() {
         val conv = ChatConversation()
         _currentConversation.value = conv
@@ -118,13 +183,11 @@ class ChatViewModel : ViewModel() {
         _newMessageCount.value = 0
         _timeoutMessage.value = null
         lastUserMessage = null
+        pendingImageBase64List = emptyList()
         timeoutJob?.cancel()
         saveConversation()
     }
     
-    /**
-     * 重发上一条失败的消息
-     */
     fun retryLastMessage() {
         lastUserMessage?.let { message ->
             if (!_isLoading.value) {
@@ -133,19 +196,29 @@ class ChatViewModel : ViewModel() {
         }
     }
     
-    /**
-     * 检查是否可以重试
-     */
     val canRetry: Boolean
         get() = lastUserMessage != null && !_isLoading.value
     
+    // Bug 3修复: 设置待发送图片
+    fun setPendingImages(base64List: List<String>) {
+        pendingImageBase64List = base64List
+    }
+    
     fun sendMessage(content: String) {
-        if (content.isBlank() || _isLoading.value) return
+        if (content.isBlank() && pendingImageBase64List.isEmpty()) return
+        if (_isLoading.value) return
         
-        // 保存用户消息用于可能的重试
         lastUserMessage = content
         
-        val userMessage = Message(content = content, isUser = true)
+        // Bug 3修复: 构建带图片的消息
+        val imageUris = if (pendingImageBase64List.isNotEmpty()) {
+            pendingImageBase64List.map { "data:image/jpeg;base64,$it" }
+        } else {
+            emptyList()
+        }
+        pendingImageBase64List = emptyList()
+        
+        val userMessage = Message(content = content, isUser = true, imageUris = imageUris)
         val updatedMessages = _messages.value.toMutableList()
         updatedMessages.add(userMessage)
         _messages.value = updatedMessages
@@ -159,11 +232,11 @@ class ChatViewModel : ViewModel() {
             _newMessageCount.value = 0
         }
         
-        // 启动超时检测
         startTimeoutTimer()
         
         viewModelScope.launch {
             try {
+                // Bug 3修复: 使用支持多模态的消息发送
                 val result = apiClient.sendMessage(
                     endpoints = endpoints,
                     apiKey = apiKey,
@@ -172,7 +245,6 @@ class ChatViewModel : ViewModel() {
                     systemPrompt = systemPrompt
                 )
                 
-                // 取消超时检测
                 timeoutJob?.cancel()
                 
                 result.fold(
@@ -186,18 +258,15 @@ class ChatViewModel : ViewModel() {
                             _newMessageCount.value = _newMessageCount.value + 1
                         }
                         
-                        // 成功响应后清除重试消息
                         lastUserMessage = null
                     },
                     onFailure = { e ->
                         _error.value = e.message ?: "未知错误"
-                        // 失败后保留用户消息用于重试
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "sendMessage error", e)
                 _error.value = e.message ?: "未知错误"
-                // 失败后保留用户消息用于重试
             } finally {
                 _isLoading.value = false
                 _waitingForReply.value = false
@@ -206,14 +275,10 @@ class ChatViewModel : ViewModel() {
         }
     }
     
-    /**
-     * 启动超时检测定时器
-     */
     private fun startTimeoutTimer() {
         timeoutJob?.cancel()
         timeoutJob = viewModelScope.launch {
             delay(RESPONSE_TIMEOUT_MS)
-            // 只有在仍然等待回复时才显示超时
             if (_waitingForReply.value && _isLoading.value) {
                 _isLoading.value = false
                 _waitingForReply.value = false
@@ -247,7 +312,7 @@ class ChatViewModel : ViewModel() {
             val currentTime = System.currentTimeMillis()
             val conv = _currentConversation.value?.copy(
                 messages = _messages.value.toMutableList(),
-                updatedAt = currentTime  // 同步更新会话时间戳
+                updatedAt = currentTime
             )
             _currentConversation.value = conv
             prefs.saveCurrentConversation(conv)
@@ -259,5 +324,7 @@ class ChatViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         timeoutJob?.cancel()
+        // Bug 5修复: 保存当前对话到列表
+        saveCurrentConversationToList()
     }
 }

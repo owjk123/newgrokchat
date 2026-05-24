@@ -1,9 +1,8 @@
 package com.newgrokchat.ui.settings
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
@@ -17,18 +16,21 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.newgrokchat.NewGrokChatApp
 import com.newgrokchat.R
 import com.newgrokchat.data.api.GrokApiClient
+import com.newgrokchat.data.local.Prefs
 import com.newgrokchat.databinding.ActivitySettingsBinding
 import com.newgrokchat.model.ApiConfig
 import com.newgrokchat.model.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 
 class SettingsActivity : AppCompatActivity() {
     
@@ -39,10 +41,8 @@ class SettingsActivity : AppCompatActivity() {
     private val pickImage = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
-                // 保存图片URI
-                prefs.aiAvatar = uri.toString()
-                updateAvatarDisplay()
-                Toast.makeText(this, "头像已更新", Toast.LENGTH_SHORT).show()
+                // Bug 4修复: 将头像图片复制到内部存储，确保持久化
+                copyAvatarToInternalStorage(uri)
             }
         }
     }
@@ -113,20 +113,29 @@ class SettingsActivity : AppCompatActivity() {
             binding.spinnerModel.setSelection(modelIndex)
         }
         
-        // 系统提示词
         binding.editSystemPrompt.setText(prefs.systemPrompt)
-        
-        // AI头像
         updateAvatarDisplay()
         
-        // TTS设置
         binding.switchTts.isChecked = prefs.ttsEnabled
         binding.seekbarTtsSpeed.progress = ((prefs.ttsSpeed - 0.5f) * 10).toInt()
         binding.textTtsSpeed.text = "语速: ${String.format("%.1f", prefs.ttsSpeed)}x"
         updateTtsVisibility()
     }
     
+    // Bug 4修复: 头像显示从内部存储读取
     private fun updateAvatarDisplay() {
+        val avatarFile = File(filesDir, Prefs.AVATAR_FILENAME)
+        if (avatarFile.exists()) {
+            try {
+                binding.avatarPreviewImage.visibility = View.VISIBLE
+                binding.avatarPreviewText.visibility = View.GONE
+                binding.avatarPreviewImage.setImageURI(Uri.fromFile(avatarFile))
+                return
+            } catch (e: Exception) {
+                // 读取失败，fallback到默认
+            }
+        }
+        
         val avatar = prefs.aiAvatar
         if (avatar.startsWith("http") || avatar.startsWith("content://") || avatar.startsWith("file://")) {
             try {
@@ -141,7 +150,52 @@ class SettingsActivity : AppCompatActivity() {
         } else {
             binding.avatarPreviewText.visibility = View.VISIBLE
             binding.avatarPreviewImage.visibility = View.GONE
-            binding.avatarPreviewText.text = avatar
+            binding.avatarPreviewText.text = if (avatar.isNotEmpty()) avatar else "🤖"
+        }
+    }
+    
+    // Bug 4修复: 将头像复制到内部存储
+    private fun copyAvatarToInternalStorage(uri: Uri) {
+        try {
+            val inputStream = contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                Toast.makeText(this, "无法读取图片", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // 解码并压缩
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            if (bitmap == null) {
+                Toast.makeText(this, "图片格式不支持", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // 缩放到合理尺寸
+            val maxSize = 256
+            val scaledBitmap = if (bitmap.width > maxSize || bitmap.height > maxSize) {
+                val scale = maxSize.toFloat() / maxOf(bitmap.width, bitmap.height)
+                Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+            } else {
+                bitmap
+            }
+            
+            // 保存到内部存储
+            val avatarFile = File(filesDir, Prefs.AVATAR_FILENAME)
+            val fos = FileOutputStream(avatarFile)
+            scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            fos.close()
+            
+            if (bitmap !== scaledBitmap) bitmap.recycle()
+            scaledBitmap.recycle()
+            
+            // 更新prefs存储file路径
+            prefs.aiAvatar = "file://${avatarFile.absolutePath}"
+            
+            updateAvatarDisplay()
+            Toast.makeText(this, "头像已更新", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "头像保存失败: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -152,21 +206,22 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     private fun showAvatarOptions() {
-        val options = arrayOf("🤖", "🤖️ 机器人", "👽 外星人", "🧙 巫师", "🦊 狐狸", "🦁 狮子", "选择自定义图片...")
+        val options = arrayOf("🤖 机器人", "👽 外星人", "🧙 巫师", "🦊 狐狸", "🦁 狮子", "选择自定义图片...")
         
         AlertDialog.Builder(this)
             .setTitle("选择AI头像")
             .setItems(options) { _, which ->
                 when (which) {
-                    in 0..5 -> {
-                        // 使用预设emoji
-                        val emojis = arrayOf("🤖", "🤖", "👽", "🧙", "🦊", "🦁")
+                    in 0..4 -> {
+                        // 使用预设emoji，同时删除内部存储头像文件
+                        val emojis = arrayOf("🤖", "👽", "🧙", "🦊", "🦁")
+                        val avatarFile = File(filesDir, Prefs.AVATAR_FILENAME)
+                        avatarFile.delete()
                         prefs.aiAvatar = emojis[which]
                         updateAvatarDisplay()
                         Toast.makeText(this, "头像已更新", Toast.LENGTH_SHORT).show()
                     }
-                    6 -> {
-                        // 选择自定义图片
+                    5 -> {
                         checkPermissionAndPick()
                     }
                 }
@@ -176,16 +231,15 @@ class SettingsActivity : AppCompatActivity() {
     
     private fun checkPermissionAndPick() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ 不需要READ_EXTERNAL_STORAGE
             openImagePicker()
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             when {
-                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) 
-                    == PackageManager.PERMISSION_GRANTED -> {
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) 
+                    == android.content.pm.PackageManager.PERMISSION_GRANTED -> {
                     openImagePicker()
                 }
                 else -> {
-                    requestPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    requestPermission.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                 }
             }
         } else {
@@ -293,7 +347,7 @@ class SettingsActivity : AppCompatActivity() {
             
             prefs.apiKey = apiKey
             prefs.selectedEndpoint = endpoint
-            prefs.selectedModel = model  // 保存选择的模型
+            prefs.selectedModel = model
             prefs.systemPrompt = systemPrompt
             
             Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show()

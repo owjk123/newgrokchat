@@ -1,5 +1,6 @@
 package com.newgrokchat.data.api
 
+import android.util.Base64
 import android.util.Log
 import com.google.gson.Gson
 import com.newgrokchat.model.ApiConfig
@@ -32,11 +33,12 @@ class GrokApiClient {
     companion object {
         private const val TAG = "GrokApiClient"
         private const val MAX_RETRIES = 3
-        private val RETRY_DELAYS = listOf(1000L, 2000L, 3000L) // 指数退避延迟
+        private val RETRY_DELAYS = listOf(1000L, 2000L, 3000L)
     }
     
     /**
      * 发送消息，自动在所有端点之间轮换重试
+     * Bug 3修复: 支持多模态消息(图片+文本)
      */
     suspend fun sendMessage(
         endpoints: List<String>,
@@ -47,9 +49,113 @@ class GrokApiClient {
     ): Result<String> = withContext(Dispatchers.IO) {
         val errors = mutableListOf<String>()
         
+        // Bug 3修复: 构建支持多模态的消息列表
+        val chatMessages = buildChatMessages(messages, systemPrompt)
+        
         for (endpoint in endpoints) {
             try {
-                val result = trySendMessage(endpoint, apiKey, model, messages, systemPrompt)
+                val result = trySendMessage(endpoint, apiKey, model, chatMessages)
+                if (result.isSuccess) {
+                    return@withContext result
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    errors.add("$endpoint: $errorMsg")
+                }
+            } catch (e: Exception) {
+                errors.add("$endpoint: ${e.message ?: "Unknown error"}")
+            }
+        }
+        
+        val errorMessage = if (errors.isNotEmpty()) {
+            "所有端点均不可用:\n${errors.joinToString("\n")}"
+        } else {
+            "所有端点均不可用"
+        }
+        Result.failure(Exception(errorMessage))
+    }
+    
+    /**
+     * Bug 3修复: 构建多模态消息列表
+     * 如果消息包含图片，content使用数组格式；否则使用简单字符串格式
+     */
+    private fun buildChatMessages(messages: List<Message>, systemPrompt: String): List<Map<String, Any>> {
+        val chatMessages = mutableListOf<Map<String, Any>>()
+        
+        if (systemPrompt.isNotBlank()) {
+            chatMessages.add(mapOf("role" to "system", "content" to systemPrompt))
+        }
+        
+        for (msg in messages) {
+            val role = if (msg.isUser) "user" else "assistant"
+            
+            if (msg.isUser && msg.imageUris.isNotEmpty()) {
+                // Bug 3修复: 带图片的消息使用多模态content格式
+                val contentParts = mutableListOf<Map<String, Any>>()
+                if (msg.content.isNotBlank()) {
+                    contentParts.add(mapOf("type" to "text", "text" to msg.content))
+                }
+                for (imageUri in msg.imageUris) {
+                    try {
+                        val base64Data = imageUriToBase64(imageUri)
+                        if (base64Data != null) {
+                            contentParts.add(mapOf(
+                                "type" to "image_url",
+                                "image_url" to mapOf("url" to "data:image/jpeg;base64,$base64Data")
+                            ))
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to encode image: $imageUri", e)
+                    }
+                }
+                if (contentParts.isNotEmpty()) {
+                    chatMessages.add(mapOf("role" to role, "content" to contentParts))
+                }
+            } else {
+                // 纯文本消息使用简单格式
+                chatMessages.add(mapOf("role" to role, "content" to msg.content))
+            }
+        }
+        
+        return chatMessages
+    }
+    
+    /**
+     * Bug 3修复: 将本地图片URI转为base64编码
+     */
+    private fun imageUriToBase64(uriString: String): String? {
+        return try {
+            when {
+                uriString.startsWith("data:image") -> {
+                    // 已经是base64格式
+                    uriString.substringAfter("base64,")
+                }
+                uriString.startsWith("content://") || uriString.startsWith("file://") -> {
+                    // 从文件读取并编码 - 需要Context，这里暂不处理
+                    // 实际编码在ChatFragment中完成，这里接收已编码的数据
+                    null
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to convert image URI to base64", e)
+            null
+        }
+    }
+    
+    /**
+     * 发送消息（接收已构建好的消息列表）
+     */
+    suspend fun sendMessageRaw(
+        endpoints: List<String>,
+        apiKey: String,
+        model: String,
+        chatMessages: List<Map<String, Any>>
+    ): Result<String> = withContext(Dispatchers.IO) {
+        val errors = mutableListOf<String>()
+        
+        for (endpoint in endpoints) {
+            try {
+                val result = trySendMessage(endpoint, apiKey, model, chatMessages)
                 if (result.isSuccess) {
                     return@withContext result
                 } else {
@@ -76,18 +182,16 @@ class GrokApiClient {
         endpoint: String,
         apiKey: String,
         model: String,
-        messages: List<Message>,
-        systemPrompt: String
+        chatMessages: List<Map<String, Any>>
     ): Result<String> {
         var lastException: Exception? = null
         
         for (attempt in 0 until MAX_RETRIES) {
             try {
-                val result = doSendMessage(endpoint, apiKey, model, messages, systemPrompt)
+                val result = doSendMessage(endpoint, apiKey, model, chatMessages)
                 if (result.isSuccess || shouldNotRetry(result.exceptionOrNull())) {
                     return result
                 }
-                // 如果需要重试且还有重试次数，记录并继续
                 lastException = result.exceptionOrNull() as? Exception
             } catch (e: Exception) {
                 lastException = e
@@ -96,7 +200,6 @@ class GrokApiClient {
                 }
             }
             
-            // 如果不是最后一次尝试，等待后重试
             if (attempt < MAX_RETRIES - 1) {
                 val delay = RETRY_DELAYS.getOrElse(attempt) { 3000L }
                 Log.w(TAG, "Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/$MAX_RETRIES)")
@@ -114,24 +217,9 @@ class GrokApiClient {
         endpoint: String,
         apiKey: String,
         model: String,
-        messages: List<Message>,
-        systemPrompt: String
+        chatMessages: List<Map<String, Any>>
     ): Result<String> {
         return try {
-            val chatMessages = mutableListOf<Map<String, String>>()
-            
-            if (systemPrompt.isNotBlank()) {
-                chatMessages.add(mapOf("role" to "system", "content" to systemPrompt))
-            }
-            
-            messages.forEach { 
-                chatMessages.add(mapOf(
-                    "role" to if (it.isUser) "user" else "assistant", 
-                    "content" to it.content
-                ))
-            }
-            
-            // 使用 stream = false，与非流式解析逻辑一致
             val requestBody = ApiConfig.ChatRequest(model = model, messages = chatMessages, stream = false)
             val json = gson.toJson(requestBody)
             
@@ -143,17 +231,13 @@ class GrokApiClient {
                 .build()
             
             val response = client.newCall(request).execute()
-            
-            // 先读取 response body 到变量，避免重复读取
             val responseBodyString = response.body?.string()
             
             if (!response.isSuccessful) {
-                // HTTP错误，先尝试解析error信息
                 val errorMessage = parseHttpErrorMessage(response.code, responseBodyString)
                 return Result.failure(Exception(errorMessage))
             }
             
-            // 检查空响应
             if (responseBodyString.isNullOrBlank()) {
                 return Result.failure(Exception("服务器返回空响应"))
             }
@@ -161,7 +245,6 @@ class GrokApiClient {
             try {
                 val chatResponse = gson.fromJson(responseBodyString, ApiConfig.ChatResponse::class.java)
                 
-                // 优先检查 API 返回的错误
                 if (chatResponse.error != null) {
                     val errorDetail = chatResponse.error.message ?: chatResponse.error.type ?: "API Error"
                     val errorCode = chatResponse.error.code
@@ -169,12 +252,10 @@ class GrokApiClient {
                     return Result.failure(Exception(fullError))
                 }
                 
-                // 检查 choices 是否为空
                 if (chatResponse.choices.isNullOrEmpty()) {
                     return Result.failure(Exception("响应格式异常: 缺少choices字段"))
                 }
                 
-                // 提取 content
                 val firstChoice = chatResponse.choices.firstOrNull()
                 val messageMap = firstChoice?.message
                 
@@ -182,7 +263,6 @@ class GrokApiClient {
                     return Result.failure(Exception("响应格式异常: 缺少message字段"))
                 }
                 
-                // content 可能为 null，需要检查
                 val content = messageMap["content"] as? String
                 if (content.isNullOrBlank()) {
                     return Result.failure(Exception("AI返回了空响应内容，请重试"))
@@ -190,7 +270,6 @@ class GrokApiClient {
                 
                 Result.success(content)
             } catch (e: Exception) {
-                // 解析失败时返回详细信息
                 val truncatedBody = if (responseBodyString.length > 200) {
                     responseBodyString.take(200) + "..."
                 } else {
@@ -210,11 +289,7 @@ class GrokApiClient {
         }
     }
     
-    /**
-     * 解析HTTP错误信息，提供本地化的错误提示
-     */
     private fun parseHttpErrorMessage(httpCode: Int, responseBody: String?): String {
-        // 尝试从响应体中提取错误信息
         val apiErrorMessage = try {
             if (!responseBody.isNullOrBlank()) {
                 val errorResponse = gson.fromJson(responseBody, ApiConfig.ChatResponse::class.java)
@@ -242,9 +317,6 @@ class GrokApiClient {
         }
     }
     
-    /**
-     * 判断是否应该根据异常类型重试
-     */
     private fun shouldRetryOnException(e: Exception): Boolean {
         return when (e) {
             is SocketException -> true
@@ -256,13 +328,9 @@ class GrokApiClient {
         }
     }
     
-    /**
-     * 判断是否不应该重试（例如明确的应用层错误）
-     */
     private fun shouldNotRetry(e: Throwable?): Boolean {
         if (e == null) return false
         val message = e.message ?: ""
-        // 这些错误重试也不会改变结果
         return message.contains("API Key") ||
                message.contains("余额不足") ||
                message.contains("访问被拒绝") ||

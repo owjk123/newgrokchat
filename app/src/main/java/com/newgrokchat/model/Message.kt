@@ -7,13 +7,15 @@ data class Message(
     val content: String,
     val isUser: Boolean,
     val timestamp: Long = System.currentTimeMillis(),
-    val isStreaming: Boolean = false
+    val isStreaming: Boolean = false,
+    // Bug 3修复: 支持图片消息，存储本地图片URI列表
+    val imageUris: List<String> = emptyList()
 )
 
 data class ChatConversation(
     val id: String = UUID.randomUUID().toString(),
-    val title: String = "New Chat",
+    var title: String = "New Chat",
     val messages: MutableList<Message> = mutableListOf(),
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    var updatedAt: Long = System.currentTimeMillis()
 )

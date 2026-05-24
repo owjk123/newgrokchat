@@ -5,19 +5,23 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.newgrokchat.R
 import com.newgrokchat.databinding.ItemMessageBinding
 import com.newgrokchat.model.Message
+import java.io.File
 
 class ChatAdapter(
     private val onCopyClick: (Message) -> Unit,
     private val onSpeakClick: (Message) -> Unit,
-    private val getAiAvatar: () -> String
+    private val getAiAvatar: () -> String,
+    // Bug 3修复: 图片点击回调
+    private val onImageClick: (String) -> Unit = {}
 ) : ListAdapter<Message, ChatAdapter.MessageViewHolder>(MessageDiffCallback()) {
     
     private var showActionsForPosition: Int = -1
@@ -39,37 +43,76 @@ class ChatAdapter(
             val layoutParams = binding.messageBubble.layoutParams as LinearLayout.LayoutParams
             
             if (message.isUser) {
-                // 用户消息：靠右
                 layoutParams.gravity = Gravity.END
                 binding.messageBubble.setBackgroundResource(R.drawable.bg_message_user)
                 binding.messageContent.setTextColor(binding.root.context.getColor(R.color.message_user_text))
                 binding.aiAvatarContainer.visibility = View.GONE
             } else {
-                // AI消息：靠左，显示头像
                 layoutParams.gravity = Gravity.START
                 binding.messageBubble.setBackgroundResource(R.drawable.bg_message_ai)
                 binding.messageContent.setTextColor(binding.root.context.getColor(R.color.message_ai_text))
                 binding.aiAvatarContainer.visibility = View.VISIBLE
                 
-                // 显示AI头像
+                // Bug 4修复: 从内部存储加载头像
                 val aiAvatar = getAiAvatar()
-                if (aiAvatar.startsWith("http") || aiAvatar.startsWith("content://") || aiAvatar.startsWith("file://")) {
+                if (aiAvatar.startsWith("file://")) {
+                    try {
+                        val file = File(Uri.parse(aiAvatar).path ?: "")
+                        if (file.exists()) {
+                            binding.aiAvatarText.visibility = View.GONE
+                            binding.aiAvatarImage.visibility = View.VISIBLE
+                            binding.aiAvatarImage.setImageURI(Uri.fromFile(file))
+                        } else {
+                            showDefaultAvatar(binding)
+                        }
+                    } catch (e: Exception) {
+                        showDefaultAvatar(binding)
+                    }
+                } else if (aiAvatar.startsWith("http") || aiAvatar.startsWith("content://")) {
                     try {
                         binding.aiAvatarText.visibility = View.GONE
                         binding.aiAvatarImage.visibility = View.VISIBLE
                         binding.aiAvatarImage.setImageURI(Uri.parse(aiAvatar))
                     } catch (e: Exception) {
-                        binding.aiAvatarText.visibility = View.VISIBLE
-                        binding.aiAvatarImage.visibility = View.GONE
-                        binding.aiAvatarText.text = "🤖"
+                        showDefaultAvatar(binding)
                     }
                 } else {
                     binding.aiAvatarText.visibility = View.VISIBLE
                     binding.aiAvatarImage.visibility = View.GONE
-                    binding.aiAvatarText.text = aiAvatar
+                    binding.aiAvatarText.text = if (aiAvatar.isNotEmpty()) aiAvatar else "🤖"
                 }
             }
             binding.messageBubble.layoutParams = layoutParams
+            
+            // Bug 3修复: 显示消息中的图片
+            if (message.isUser && message.imageUris.isNotEmpty()) {
+                binding.imageContainer.visibility = View.VISIBLE
+                // 显示最多3张图片缩略图
+                val imageViews = listOf(binding.messageImage1, binding.messageImage2, binding.messageImage3)
+                for (i in imageViews.indices) {
+                    if (i < message.imageUris.size && i < 3) {
+                        imageViews[i].visibility = View.VISIBLE
+                        try {
+                            val uri = message.imageUris[i]
+                            // 本地文件URI直接加载
+                            if (uri.startsWith("file://") || uri.startsWith("content://")) {
+                                imageViews[i].setImageURI(Uri.parse(uri))
+                            }
+                        } catch (e: Exception) {
+                            imageViews[i].visibility = View.GONE
+                        }
+                        // 点击查看大图
+                        val imageUri = message.imageUris[i]
+                        imageViews[i].setOnClickListener {
+                            onImageClick(imageUri)
+                        }
+                    } else {
+                        imageViews[i].visibility = View.GONE
+                    }
+                }
+            } else {
+                binding.imageContainer.visibility = View.GONE
+            }
             
             // typing indicator
             if (message.isStreaming && message.content.isEmpty()) {
@@ -79,7 +122,6 @@ class ChatAdapter(
             } else {
                 binding.typingIndicator.visibility = View.GONE
                 binding.messageContent.visibility = View.VISIBLE
-                // 显示/隐藏操作按钮
                 binding.actionButtons.visibility = if (showActionsForPosition == position) View.VISIBLE else View.GONE
             }
             
@@ -108,6 +150,12 @@ class ChatAdapter(
                 }
             }
         }
+    }
+    
+    private fun showDefaultAvatar(binding: ItemMessageBinding) {
+        binding.aiAvatarText.visibility = View.VISIBLE
+        binding.aiAvatarImage.visibility = View.GONE
+        binding.aiAvatarText.text = "🤖"
     }
     
     class MessageDiffCallback : DiffUtil.ItemCallback<Message>() {
